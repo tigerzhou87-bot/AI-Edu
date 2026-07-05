@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>✍️ 句型大挑战 - Unit 1 Sentence Builder</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+body { font-family:"Comic Sans MS","Microsoft YaHei",sans-serif; background:linear-gradient(135deg,#059669,#10b981); position:fixed; width:100%; height:100%; overflow-y:auto; }
+#game { max-width:480px; margin:0 auto; padding:15px; }
+h1 { text-align:center; color:white; font-size:20px; margin-bottom:2px; text-shadow:0 2px 4px rgba(0,0,0,.3); }
+#subtitle { text-align:center; color:rgba(255,255,255,.85); font-size:13px; margin-bottom:10px; }
+#header { display:flex; justify-content:space-around; margin-bottom:10px; gap:8px; }
+.badge { background:rgba(255,255,255,.9); padding:8px 16px; border-radius:20px; font-size:15px; font-weight:bold; }
+#score { color:#059669; } #qnum { color:#8b5cf6; }
+
+#scene { background:rgba(255,255,255,.95); border-radius:20px; padding:20px; margin-bottom:12px; text-align:center; box-shadow:0 5px 20px rgba(0,0,0,.2); }
+#scene .emoji { font-size:64px; margin-bottom:8px; }
+#scene .question { font-size:18px; color:#475569; margin-bottom:4px; }
+#scene .q-en { font-size:16px; color:#6366f1; font-weight:bold; margin-bottom:10px; }
+
+#buildArea { background:rgba(255,255,255,.3); border-radius:16px; padding:12px; min-height:60px; margin-bottom:12px; border:2px dashed rgba(255,255,255,.6); display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:center; }
+#buildArea .placed { background:white; padding:8px 14px; border-radius:10px; font-size:15px; font-weight:bold; color:#1e293b; box-shadow:0 2px 6px rgba(0,0,0,.1); cursor:pointer; transition:all .15s; }
+#buildArea .placed:active { transform:scale(.95); }
+#buildArea .placeholder { color:rgba(255,255,255,.7); font-size:14px; }
+
+#wordBank { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+.word { background:white; padding:10px 16px; border-radius:12px; font-size:15px; font-weight:bold; cursor:pointer; box-shadow:0 3px 8px rgba(0,0,0,.15); transition:all .15s; border:2px solid transparent; }
+.word:active { transform:scale(.95); }
+.word.used { opacity:.3; pointer-events:none; }
+
+#feedback { text-align:center; min-height:36px; margin-top:10px; font-size:18px; font-weight:bold; color:white; }
+#nextBtn { display:none; margin:8px auto 0; padding:12px 40px; border-radius:24px; border:none; background:white; color:#059669; font-size:18px; font-weight:bold; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,.2); }
+
+#endPanel { display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:200; align-items:center; justify-content:center; }
+#endPanel.show { display:flex; }
+#endCard { background:white; padding:32px; border-radius:24px; text-align:center; max-width:360px; width:90%; }
+#endCard h2 { font-size:28px; margin-bottom:16px; }
+#endCard p { font-size:18px; margin:6px 0; color:#475569; }
+#endCard button { margin-top:20px; padding:14px 40px; border-radius:24px; border:none; background:linear-gradient(135deg,#059669,#10b981); color:white; font-size:20px; font-weight:bold; cursor:pointer; }
+</style>
+</head>
+<body>
+<div id="game">
+  <h1>✍️ 句型大挑战</h1>
+  <div id="subtitle">Unit 1 — 用单词拼出正确的句子</div>
+  <div id="header">
+    <div class="badge">⭐ <span id="score">0</span></div>
+    <div class="badge">📝 <span id="qnum">1/8</span></div>
+  </div>
+
+  <div id="scene">
+    <div class="emoji" id="sceneEmoji"></div>
+    <div class="question" id="sceneHint"></div>
+    <div class="q-en" id="sceneEn"></div>
+  </div>
+
+  <div id="buildArea"><span class="placeholder">👆 点击下方单词来造句</span></div>
+  <div id="wordBank"></div>
+  <div id="feedback"></div>
+  <button id="nextBtn" onclick="nextPuzzle()">下一题 ▶</button>
+</div>
+<div id="endPanel">
+  <div id="endCard">
+    <h2>🎉 挑战完成！</h2>
+    <p>⭐ 总分：<strong id="finalScore"></strong></p>
+    <p>✅ 正确：<strong id="finalCorrect"></strong>/8</p>
+    <p>🏆 <strong id="finalGrade"></strong></p>
+    <button onclick="location.reload()">🔄 再来一次</button>
+  </div>
+</div>
+
+<script>
+const puzzles = [
+  { // 1
+    hint:'爸爸做什么工作？', en:'What is your father\'s job?',
+    words:['He','is','a','doctor','.'], answer:'He is a doctor.',
+    emoji:'👨‍⚕️', scene:'— What is your father\'s job?'
+  },
+  { // 2
+    hint:'妈妈做什么工作？', en:'What is your mother\'s job?',
+    words:['She','is','a','teacher','.'], answer:'She is a teacher.',
+    emoji:'👩‍🏫', scene:'— What is your mother\'s job?'
+  },
+  { // 3
+    hint:'他在哪里工作？', en:'Where does he work?',
+    words:['He','works','in','a','hospital','.'], answer:'He works in a hospital.',
+    emoji:'🏥', scene:'— Where does he work?'
+  },
+  { // 4
+    hint:'她在哪里工作？', en:'Where does she work?',
+    words:['She','works','at','school','.'], answer:'She works at school.',
+    emoji:'🏫', scene:'— Where does she work?'
+  },
+  { // 5
+    hint:'他是做什么的？', en:'What does he do?',
+    words:['He','is','a','farmer','.'], answer:'He is a farmer.',
+    emoji:'👨‍🌾', scene:'— What does he do?'
+  },
+  { // 6
+    hint:'她是做什么的？', en:'What does she do?',
+    words:['She','is','a','nurse','.'], answer:'She is a nurse.',
+    emoji:'👩‍⚕️', scene:'— What does she do?'
+  },
+  { // 7
+    hint:'警察在哪里工作？', en:'Where does a police officer work?',
+    words:['A','police','officer','works','in','a','police','station','.'], answer:'A police officer works in a police station.',
+    emoji:'👮', scene:'— Where does a police officer work?'
+  },
+  { // 8
+    hint:'厨师在哪里工作？', en:'Where does a cook work?',
+    words:['A','cook','works','in','a','restaurant','.'], answer:'A cook works in a restaurant.',
+    emoji:'👨‍🍳', scene:'— Where does a cook work?'
+  }
+];
+
+let score=0, puzzleIdx=0, placed=[], correctCount=0;
+const $=id=>document.getElementById(id);
+
+function shuffle(a) { for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function loadPuzzle() {
+  if(puzzleIdx>=puzzles.length) { endGame(); return; }
+  const p = puzzles[puzzleIdx];
+  $('sceneEmoji').textContent=p.emoji;
+  $('sceneHint').textContent=p.hint;
+  $('sceneEn').textContent=p.scene;
+  $('qnum').textContent=(puzzleIdx+1)+'/8';
+  $('feedback').textContent='';
+  $('nextBtn').style.display='none';
+  $('buildArea').innerHTML='<span class="placeholder">👆 点击下方单词来造句</span>';
+  placed=[];
+
+  // shuffle words for bank
+  const shuffled = shuffle([...p.words]);
+  $('wordBank').innerHTML = shuffled.map(w=>`<div class="word">${w}</div>`).join('');
+
+  document.querySelectorAll('.word').forEach(el=>{
+    el.onclick = ()=> placeWord(el);
+  });
+}
+
+function placeWord(el) {
+  if(el.classList.contains('used')) return;
+  el.classList.add('used');
+  const word = el.textContent;
+  placed.push(word);
+
+  // update build area
+  if($('buildArea').querySelector('.placeholder')) $('buildArea').innerHTML='';
+  const tag = document.createElement('div');
+  tag.className='placed'; tag.textContent=word;
+  tag.onclick = ()=> removeWord(word, el, tag);
+  $('buildArea').appendChild(tag);
+
+  // auto-check — handle punctuation and spacing
+  let built = placed.join(' ').replace(/ ([.,!?;:])/g, '$1').replace(/\s+/g,' ').trim();
+  const p = puzzles[puzzleIdx];
+  const target = p.answer.replace(/\s+/g,' ').trim();
+  if(built === target) {
+    correctAnswer();
+  } else if(placed.length >= p.words.length) {
+    $('feedback').textContent='❌ 不太对，点击单词可以退回重排';
+  }
+}
+
+function removeWord(word, bankEl, tagEl) {
+  placed = placed.filter(w=>w!==word);
+  bankEl.classList.remove('used');
+  tagEl.remove();
+  $('feedback').textContent='';
+  if(placed.length===0) $('buildArea').innerHTML='<span class="placeholder">👆 点击下方单词来造句</span>';
+}
+
+function correctAnswer() {
+  correctCount++;
+  const bonus = placed.length>5?50:30;
+  score+=bonus;
+  $('score').textContent=score;
+  $('feedback').innerHTML='✅ 正确！<br><small>'+puzzles[puzzleIdx].en+'</small>';
+
+  // speak the sentence
+  if('speechSynthesis' in window) {
+    const u = new SpeechSynthesisUtterance(puzzles[puzzleIdx].answer);
+    u.lang='en-US'; u.rate=0.85;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  }
+
+  // disable word bank
+  document.querySelectorAll('.word').forEach(w=>w.style.pointerEvents='none');
+  $('nextBtn').style.display='block';
+}
+
+function nextPuzzle() {
+  puzzleIdx++;
+  loadPuzzle();
+}
+
+function endGame() {
+  $('endPanel').classList.add('show');
+  $('finalScore').textContent=score;
+  $('finalCorrect').textContent=correctCount;
+  $('finalGrade').textContent = correctCount===8?'🏆 完美！':correctCount>=6?'🌟 非常棒！':correctCount>=4?'👍 做得不错！':'💪 继续加油！';
+}
+
+loadPuzzle();
+</script>
+</body>
+</html>

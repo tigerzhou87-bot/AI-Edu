@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🔗 职业地点连连看 - Unit 1 Matching</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+body { font-family:"Comic Sans MS","Microsoft YaHei",sans-serif; background:linear-gradient(135deg,#7c3aed,#a855f7); overflow-y:auto; position:fixed; width:100%; height:100%; }
+#game { max-width:480px; margin:0 auto; padding:15px; }
+h1 { text-align:center; color:white; font-size:22px; margin-bottom:4px; text-shadow:0 2px 4px rgba(0,0,0,.3); }
+#subtitle { text-align:center; color:rgba(255,255,255,.8); font-size:14px; margin-bottom:12px; }
+#header { display:flex; justify-content:space-around; margin-bottom:12px; gap:10px; }
+.badge { background:rgba(255,255,255,.9); padding:8px 16px; border-radius:20px; font-size:15px; font-weight:bold; }
+#score { color:#10b981; } #pairs { color:#8b5cf6; } #timer { color:#f59e0b; }
+#board { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.col h3 { text-align:center; color:white; font-size:16px; margin-bottom:8px; }
+.card { background:white; padding:14px 10px; border-radius:14px; margin-bottom:8px; font-size:15px; font-weight:bold; text-align:center; cursor:pointer; transition:all .2s; box-shadow:0 3px 10px rgba(0,0,0,.15); border:3px solid transparent; min-height:48px; display:flex; align-items:center; justify-content:center; gap:6px; }
+.card:hover { transform:translateY(-2px); }
+.card.selected { border-color:#6366f1; background:#eef2ff; transform:scale(1.03); }
+.card.matched { border-color:#10b981; background:#d1fae5; pointer-events:none; opacity:.7; }
+.card.wrong { animation:shake .5s; border-color:#ef4444; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+#msg { text-align:center; color:white; font-size:18px; font-weight:bold; min-height:40px; margin-top:8px; }
+#endPanel { display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:200; align-items:center; justify-content:center; }
+#endPanel.show { display:flex; }
+#endCard { background:white; padding:32px; border-radius:24px; text-align:center; max-width:360px; width:90%; }
+#endCard h2 { font-size:28px; margin-bottom:16px; }
+#endCard p { font-size:18px; margin:6px 0; color:#475569; }
+#endCard button { margin-top:20px; padding:14px 40px; border-radius:24px; border:none; background:linear-gradient(135deg,#7c3aed,#a855f7); color:white; font-size:20px; font-weight:bold; cursor:pointer; }
+</style>
+</head>
+<body>
+<div id="game">
+  <h1>🔗 职业 & 地点连连看</h1>
+  <div id="subtitle">Unit 1 — 把职业和对应的地点连起来</div>
+  <div id="header">
+    <div class="badge">⭐ <span id="score">0</span></div>
+    <div class="badge">✅ <span id="pairs">0/7</span></div>
+    <div class="badge">⏱ <span id="timer">0</span>s</div>
+  </div>
+  <div id="board">
+    <div class="col">
+      <h3>👨‍💼 职业</h3>
+      <div id="jobCol"></div>
+    </div>
+    <div class="col">
+      <h3>📍 工作地点</h3>
+      <div id="placeCol"></div>
+    </div>
+  </div>
+  <div id="msg"></div>
+</div>
+<div id="endPanel">
+  <div id="endCard">
+    <h2>🎉 全部匹配！</h2>
+    <p>⭐ 得分：<strong id="finalScore"></strong></p>
+    <p>⏱ 用时：<strong id="finalTime"></strong> 秒</p>
+    <p>🏆 <strong id="finalGrade"></strong></p>
+    <button onclick="location.reload()">🔄 再来一次</button>
+  </div>
+</div>
+
+<script>
+const pairs = [
+  { job:'Doctor 👨‍⚕️', place:'🏥 Hospital', word:'doctor' },
+  { job:'Nurse 👩‍⚕️', place:'🏥 Hospital', word:'nurse' },
+  { job:'Cook 👨‍🍳', place:'🍽️ Restaurant', word:'cook' },
+  { job:'Teacher 👩‍🏫', place:'🏫 School', word:'teacher' },
+  { job:'Farmer 👨‍🌾', place:'🌾 Farm', word:'farmer' },
+  { job:'Worker 👷', place:'🏭 Factory', word:'worker' },
+  { job:'Police 👮', place:'🚔 Police station', word:'police' }
+];
+
+let score=0, matched=0, selectedJob=null, startTime=Date.now(), timerInterval;
+const $=id=>document.getElementById(id);
+
+function shuffle(a) { for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function buildBoard() {
+  const jobs = shuffle([...pairs]);
+  const places = shuffle([...pairs]);
+
+  $('jobCol').innerHTML = jobs.map(p=>`<div class="card" data-key="${p.word}" data-col="job">${p.job}</div>`).join('');
+  $('placeCol').innerHTML = places.map(p=>`<div class="card" data-key="${p.word}" data-col="place">${p.place}</div>`).join('');
+
+  document.querySelectorAll('.card').forEach(card=>{
+    card.onclick = ()=>onCardClick(card);
+  });
+}
+
+function onCardClick(card) {
+  if(card.classList.contains('matched')) return;
+
+  if(card.dataset.col==='job') {
+    document.querySelectorAll('#jobCol .card').forEach(c=>c.classList.remove('selected'));
+    card.classList.add('selected');
+    selectedJob = card;
+    $('msg').textContent='';
+  } else {
+    if(!selectedJob) { $('msg').textContent='👆 先选一个职业！'; return; }
+    // check match
+    if(card.dataset.key===selectedJob.dataset.key) {
+      // correct!
+      score+=100; matched++;
+      card.classList.add('matched'); card.classList.remove('selected');
+      selectedJob.classList.add('matched'); selectedJob.classList.remove('selected');
+      $('msg').innerHTML='✅ 正确！'+card.dataset.key.charAt(0).toUpperCase()+card.dataset.key.slice(1);
+      $('score').textContent=score;
+      $('pairs').textContent=matched+'/7';
+      selectedJob=null;
+      if(matched===7) endGame();
+    } else {
+      // wrong
+      card.classList.add('wrong');
+      selectedJob.classList.add('wrong');
+      score=Math.max(0,score-20);
+      $('score').textContent=score;
+      $('msg').textContent='❌ 不匹配，再试试！';
+      setTimeout(()=>{ card.classList.remove('wrong'); selectedJob.classList.remove('wrong'); selectedJob=null; },600);
+    }
+  }
+}
+
+function endGame() {
+  clearInterval(timerInterval);
+  const elapsed = Math.round((Date.now()-startTime)/1000);
+  $('endPanel').classList.add('show');
+  $('finalScore').textContent=score;
+  $('finalTime').textContent=elapsed;
+  $('finalGrade').textContent = elapsed<20?'🏆 闪电速度！':elapsed<40?'🌟 非常棒！':elapsed<70?'👍 做得好！':'💪 继续加油！';
+}
+
+// timer
+timerInterval=setInterval(()=>{ $('timer').textContent=Math.round((Date.now()-startTime)/1000); },1000);
+
+buildBoard();
+</script>
+</body>
+</html>
